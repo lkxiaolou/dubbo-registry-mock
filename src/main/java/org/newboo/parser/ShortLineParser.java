@@ -2,10 +2,11 @@ package org.newboo.parser;
 
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.constants.CommonConstants;
+import org.apache.dubbo.common.utils.StringUtils;
 
 /**
  * 简化版行格式：
- * ${ip}:${port}:${service}:${version}:${group}
+ * ${ip}:${port}:${version}:${group}
  * 其中${ip}:${port}:${service}必需，${version}:${group}可选
  */
 public class ShortLineParser implements LineParser {
@@ -27,7 +28,9 @@ public class ShortLineParser implements LineParser {
             case 4: // ${ip}:${port}:${service}:${version}
                 return url.addParameter(CommonConstants.VERSION_KEY, cats[3]);
             case 5: // ${ip}:${port}:${service}:${version}:${group}
-                url = url.addParameter(CommonConstants.VERSION_KEY, cats[3]);
+                if (StringUtils.isNotEmpty(cats[3])) {
+                    url = url.addParameter(CommonConstants.VERSION_KEY, cats[3]);
+                }
                 return url.addParameter(CommonConstants.GROUP_KEY, cats[4]);
             default:
                 throw new LineParseException("error format " + line);

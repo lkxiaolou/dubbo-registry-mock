@@ -7,6 +7,15 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,35 +53,36 @@ public class FileUtil {
         }
     }
 
-    public static String readAll(String fileName) {
-        File file = new File(fileName);
-        StringBuilder content = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new FileInputStream(file),
-                StandardCharsets.UTF_8))) {
-            String tempString;
-            // 一次读入一行，直到读入null为文件结束
-            while ((tempString = reader.readLine()) != null) {
-                content.append(tempString).append("\n");
-            }
-        } catch (Throwable ignore) {
+    public static String getFileLastModifyTime(String fileName) {
+        Path path = Paths.get(fileName);
+        try {
+            return Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toString();
+        } catch (Exception e) {
             return "";
         }
-
-        return content.toString().trim();
     }
 
-    public static String readLine(String fileName) {
-        File file = new File(fileName);
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new FileInputStream(file),
-                StandardCharsets.UTF_8))) {
-            String line = reader.readLine();
-            return line == null || line.isEmpty()
-                    ? null
-                    : line;
-        } catch (Throwable ignore) {
-            return "";
+    public static void main(String[] args) {
+        watchDir("/tmp/mock-registry");
+    }
+
+    public static void watchDir(String dir) {
+        Path path = Paths.get(dir);
+        try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
+            path.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE);
+            while (true) {
+                WatchKey key = watchService.take();
+                for (WatchEvent<?> watchEvent : key.pollEvents()) {
+                    if (watchEvent.kind() == StandardWatchEventKinds.ENTRY_CREATE) {
+                        System.out.println("create...");
+                    } else if (watchEvent.kind() == StandardWatchEventKinds.ENTRY_MODIFY) {
+                        System.out.println("modify...");
+                    } else if (watchEvent.kind() == StandardWatchEventKinds.ENTRY_DELETE) {
+                        System.out.println("delete...");
+                    }
+                }
+            }
+        } catch (Exception e) {
         }
     }
 

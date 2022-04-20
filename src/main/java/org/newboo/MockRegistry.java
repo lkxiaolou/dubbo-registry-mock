@@ -2,6 +2,7 @@ package org.newboo;
 
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.utils.NamedThreadFactory;
+import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.registry.NotifyListener;
 import org.apache.dubbo.registry.support.FailbackRegistry;
 import org.apache.dubbo.rpc.RpcException;
@@ -15,11 +16,19 @@ import java.util.concurrent.TimeUnit;
 
 public class MockRegistry extends FailbackRegistry {
 
-    private final ServiceCache serviceCache;
+    private final MockService mockService;
+
+    private static final String DISCOVERY_DEFAULT_DIR = "/tmp/mock-registry/";
+    private static final String DISCOVERY_FILE_DIR_KEY = "discovery_file";
 
     public MockRegistry(URL url) {
         super(url);
-        serviceCache = new ServiceCache("/tmp/mock-registry/");
+        String basePath = DISCOVERY_DEFAULT_DIR;
+        if (StringUtils.isNotEmpty(url.getParameter(DISCOVERY_FILE_DIR_KEY))) {
+            basePath = url.getParameter(DISCOVERY_FILE_DIR_KEY);
+        }
+
+        mockService = new MockService(basePath);
 
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1, new NamedThreadFactory("file_scan", true));
         scheduledExecutorService.scheduleWithFixedDelay(new SubscribeAgent(), 1000L, 5000, TimeUnit.MILLISECONDS);
@@ -29,7 +38,7 @@ public class MockRegistry extends FailbackRegistry {
     @Override
     public void doRegister(URL url) {
         try {
-            serviceCache.writeUrl(url);
+            mockService.writeUrl(url);
         } catch (Throwable e) {
             throw new RpcException("Failed to register " + url, e);
         }
@@ -38,7 +47,7 @@ public class MockRegistry extends FailbackRegistry {
     @Override
     public void doUnregister(URL url) {
         try {
-            serviceCache.removeUrl(url);
+            mockService.removeUrl(url);
         } catch (Throwable e) {
             throw new RpcException("Failed to unregister " + url, e);
         }
@@ -47,7 +56,7 @@ public class MockRegistry extends FailbackRegistry {
     @Override
     public void doSubscribe(URL url, NotifyListener listener) {
         try {
-            List<URL> urls = serviceCache.getUrls(url.getServiceInterface());
+            List<URL> urls = mockService.getUrls(url.getServiceInterface());
             listener.notify(urls);
         } catch (ServiceNotChangeException ignored) {
         } catch (Throwable e) {

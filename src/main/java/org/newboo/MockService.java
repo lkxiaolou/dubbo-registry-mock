@@ -20,20 +20,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class ServiceCache {
+public class MockService {
 
     private final List<LineParser> formatters;
 
-    private static final Logger logger = LoggerFactory.getLogger(ServiceCache.class);
-
-    // 缓存，key为服务名
-    private Map<String, Set<URL>> cache;
-
-    // cache的读写锁
-    private final ReadWriteLock cacheReadLock;
+    private static final Logger logger = LoggerFactory.getLogger(MockService.class);
 
     // 文件路径中心
     private final PathCenter pathCenter;
@@ -41,30 +33,29 @@ public class ServiceCache {
     // 版本中心
     private final VersionCenter versionCenter;
 
-    public ServiceCache(String discoverDir) {
+    public MockService(String discoverDir) {
         this.pathCenter = new PathCenter(discoverDir);
         this.versionCenter = new VersionCenter();
         this.formatters = buildFormatters();
-        this.cache = new HashMap<>();
-        this.cacheReadLock = new ReentrantReadWriteLock();
     }
 
     /**
      * @param service 服务名
      * @return 是否有变更
      */
-    public boolean resetCache(String service) {
-        List<String> lines = FileUtil.readLines(this.pathCenter.getServicePath(service));
+    public boolean scan(String service) {
+        String fileName = this.pathCenter.getServicePath(service);
+        String version = FileUtil.getFileLastModifyTime(fileName);
+
+        // 未变更直接忽略
+        if (versionCenter.getVersion(service).equals(version)) {
+            return false;
+        }
+
+        List<String> lines = FileUtil.readLines(fileName);
         Map<String, Set<URL>> newCache = new HashMap<>();
-        String version = "";
 
         for (String line : lines) {
-            // 解析version
-            if (LinesUtil.isVersionLine(line)) {
-                version = LinesUtil.getVersionFromLine(line);
-                continue;
-            }
-
             // 注释跳过
             if (LinesUtil.isSkipLine(line)) {
                 continue;
@@ -80,20 +71,9 @@ public class ServiceCache {
             }
         }
 
-        // 更新缓存，只有version变化时更新
-        if (!versionCenter.getVersion(service).equals(version)) {
-            // 更新缓存
-            this.cacheReadLock.writeLock().lock();
-            this.cache = newCache;
-            this.cacheReadLock.writeLock().unlock();
-
-            // 更新version
-            this.versionCenter.setVersion(service, version);
-
-            return true;
-        }
-
-        return false;
+        // 更新version
+        this.versionCenter.setVersion(service, version);
+        return true;
     }
 
     public static void main(String[] args) {
@@ -124,14 +104,6 @@ public class ServiceCache {
         // 写入文件
         String line = url.toFullString();
         FileUtil.appendLine(fileName, line);
-
-        // 计算version
-        List<String> lines = FileUtil.readLines(fileName);
-        String version = LinesUtil.calLinesVersion(lines);
-        lines = LinesUtil.replaceLinesVersion(lines, version);
-
-        // 写入version
-        FileUtil.writeLines(fileName, lines);
     }
 
     public void removeUrl(URL url) throws IOException {
@@ -141,16 +113,11 @@ public class ServiceCache {
         List<String> lines = FileUtil.readLines(fileName);
         lines = LinesUtil.removeLine(lines, line);
 
-        // 计算version
-        String version = LinesUtil.calLinesVersion(lines);
-        lines = LinesUtil.replaceLinesVersion(lines, version);
-
-        // 写入version
         FileUtil.writeLines(fileName, lines);
     }
 
     public List<URL> getUrls(String service) throws Exception {
-        if (!resetCache(service)) {
+        if (!scan(service)) {
             throw new ServiceNotChangeException();
         }
 
