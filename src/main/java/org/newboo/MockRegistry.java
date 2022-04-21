@@ -31,7 +31,7 @@ public class MockRegistry extends FailbackRegistry {
         mockService = new MockService(basePath);
 
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1, new NamedThreadFactory("file_scan", true));
-        scheduledExecutorService.scheduleWithFixedDelay(new SubscribeAgent(), 1000L, 5000, TimeUnit.MILLISECONDS);
+        scheduledExecutorService.scheduleWithFixedDelay(new SubscribeScan(), 1000L, 5000, TimeUnit.MILLISECONDS);
 
     }
 
@@ -73,7 +73,7 @@ public class MockRegistry extends FailbackRegistry {
         return true;
     }
 
-    public class SubscribeAgent implements Runnable {
+    public class SubscribeScan implements Runnable {
         @Override
         public void run() {
             try {
