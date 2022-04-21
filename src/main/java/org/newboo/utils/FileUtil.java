@@ -56,7 +56,7 @@ public class FileUtil {
     public static String getFileLastModifyTime(String fileName) {
         Path path = Paths.get(fileName);
         try {
-            return Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toString();
+            return Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toMillis()+"";
         } catch (Exception e) {
             return "";
         }
